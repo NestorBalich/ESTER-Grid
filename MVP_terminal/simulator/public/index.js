@@ -73,25 +73,36 @@ function draw(){
   }
 
   // robots
-  for(const rb of robots){
+// ----------------------------
+// Dibujar robots con posición real
+// ----------------------------
+for(const rb of robots){
     ctx.fillStyle = `rgb(${rb.color[0]},${rb.color[1]},${rb.color[2]})`;
+    
+    // usar rb.pos si existe, sino fallback a rb.x / rb.y
+    const x = rb.pos ? rb.pos[0] : rb.x;
+    const y = rb.pos ? rb.pos[1] : rb.y;
+    const rot = rb.rot || 0; // rotación en grados
+    
+    // cuerpo
     ctx.beginPath();
-    ctx.arc(rb.x, rb.y, 10,0,2*Math.PI);
+    ctx.arc(x, y, 10, 0, 2*Math.PI);
     ctx.fill();
 
     // orientación
-    const dx = 15 * Math.cos(rb.rot||0);
-    const dy = 15 * Math.sin(rb.rot||0);
+    const dx = 15 * Math.cos(rot * Math.PI / 180);
+    const dy = 15 * Math.sin(rot * Math.PI / 180);
     ctx.strokeStyle = "#ff0";
     ctx.beginPath();
-    ctx.moveTo(rb.x, rb.y);
-    ctx.lineTo(rb.x+dx, rb.y+dy);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx, y + dy);
     ctx.stroke();
 
     // nombre siempre visible
     ctx.fillStyle="#fff";
-    ctx.fillText(rb.id, rb.x+12, rb.y-12);
-  }
+    ctx.fillText(rb.id, x+12, y-12);
+}
+
 }
 
 function updatePanel(){
@@ -125,7 +136,7 @@ document.getElementById("regenBtn").onclick = () => {
   // Solo los negativos se convierten en -1
   if (count < 0) count = -1;
 
-  console.log("Enviando count:", count); // para probar
+  //console.log("Enviando count:", count); // para probar
   fetch(`/regenerate/${count}`);
 };
 

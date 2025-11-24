@@ -271,10 +271,10 @@ app.get("/regenerate/:count", (req, res) => {
   generate_objects(count);
 
   // Reset robots
-  for (const rid in robots) {
-    robots[rid].x = robots[rid].tx = Math.random() * WINDOW_W;
-    robots[rid].y = robots[rid].ty = Math.random() * WINDOW_H;
-  }
+  //for (const rid in robots) {
+  //  robots[rid].x = robots[rid].tx = Math.random() * WINDOW_W;
+  //  robots[rid].y = robots[rid].ty = Math.random() * WINDOW_H;
+  //}
 
   res.json({ ok: true, count });
 });
