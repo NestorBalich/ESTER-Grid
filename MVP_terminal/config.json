@@ -1,0 +1,6 @@
+{
+  "host": "127.0.0.1",
+  "dispatcher_udp_port": 10010,
+  "dispatcher_http_port": 4000,
+  "udp_base": 10011
+}

@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://y2f6ydlq18nh"]
+
+[ext_resource type="Script" uid="uid://cwkj2gfc087is" path="res://robot.gd" id="1_3cn6f"]
+
+[node name="robot" type="Node2D"]
+script = ExtResource("1_3cn6f")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0
+color = Color(0.05490196, 1, 1, 1)

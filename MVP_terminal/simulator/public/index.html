@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ESTER-GRID MVP</title>
+<style>
+  html, body {margin:0;padding:0;font-family:sans-serif;height:100%;display:flex;flex-direction:column;}
+  h1 {margin:0;padding:10px;background:#111;color:#fff;font-size:2em;text-align:center;}
+
+  #middle {flex:1;display:flex;overflow:hidden;}
+
+  /* Izquierda: cámara + generar robot */
+  #leftPanel {width:40%;background:#000;display:flex;flex-direction:column;align-items:center;padding:5px;box-sizing:border-box;}
+  #camCanvas {flex:1;width:100%;background:#222;margin-bottom:10px;}
+
+  /* Panel central vertical: robots arriba, colisiones abajo */
+  #infoPanel {width:300px;background:#333;color:#fff;display:flex;flex-direction:column;overflow:hidden;padding:10px;box-sizing:border-box;}
+  #robotList {height:150px;overflow:auto;padding-left:10px;background:#222;padding:5px;margin-bottom:10px;}
+  #panel_collitions {flex:1;background:#111;color:#f66;overflow:auto;padding:5px;}
+  #panel_status {flex:1;background:#111;color:rgb(17, 131, 36);overflow:auto;padding:5px;}
+
+  /* Derecha: simulador */
+  #simPanel {flex:1;background:#222;display:flex;align-items:center;justify-content:center;}
+  #map, #camCanvas  {background:#333;width:95%;height:50%;} /* mitad del alto */
+
+  /* Abajo: controles de objetos */
+  #bottomPanel {background:#333;color:#fff;padding:10px;box-sizing:border-box;display:flex;gap:10px;flex-wrap:wrap;}
+  #bottomPanel input, #bottomPanel button {padding:5px;}
+</style>
+</head>
+<body>
+<h1>ESTER-GRID MVP</h1>
+
+<div id="middle">
+  <!-- Izquierda: cámara -->
+  <!-- Panel de cámara + editor -->
+<div id="leftPanel">
+  <!-- Panel de IDE estilo Monaco -->
+  <div id="editorPanel" style="flex:1;display:flex;flex-direction:column;margin-top:10px;width:100%;height:50%;">
+   
+
+   <div id="editorContainer" style="flex:1;border:1px solid #555;height:50%;">
+    <div id="editor" style="width:100%;height:100%;"></div>
+    </div>
+    <br>
+     <div id="editorButtons" style="display:flex;gap:5px;margin-bottom:5px;">
+      <button id="runBtn">▶ Ejecutar codigo</button>
+      <button onclick="clearEditor()">🧹 Limpiar código</button>
+      <button onclick="clearOutput()">🧹 Limpiar consola</button>
+      <select id="selector">
+        <option value="">📄 Cargar ejemplo...</option>
+        <option value="ejemplo0">Mover cuadrado</option>
+        <option value="ejemplo1">Teletrasportar</option>
+        <option value="ejemplo2">Girar y avanzar</option>
+        <option value="ejemplo3">Mover un robot</option>
+        <option value="ejemplo4">Mover dos robot</option>
+      </select>
+    </div>
+    <div id="panel_output" style="height:40%;background:#111;color:#0f0;overflow:auto;padding:5px;margin-top:5px;font-family:monospace;">
+       # Salida de Python
+    </div>
+  </div>
+
+</div>
+
+  <!-- Panel central vertical: robots arriba, colisiones abajo -->
+  <div id="infoPanel">
+    <h4>Robots</h4>
+    <ul id="robotList"></ul>
+
+    <h4>Collitions</h4>
+    <div id="panel_collitions"></div>
+    <h4>Status</h4>
+    <div id="panel_status"></div>
+    <br>
+    <div>
+        <label>Objetos:</label>
+        <input type="number" id="objCount" value="50" min="0" max="200"  style="width:50px;"/>
+        <button id="regenBtn">Crear</button>
+    </div>
+  </div>
+
+    <!-- Derecha: simulador + cámara -->
+   <div id="simPanel" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;">
+  <canvas id="map" width="900" height="400" style="border:1px solid #888;margin-bottom:10px;"></canvas>
+  <canvas id="camCanvas" width="900" height="400" style="border:1px solid #888;background:#222;"></canvas>
+</div>
+</div>
+
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+<script src="index.js"></script> <!-- ✅ Lógica separada -->
+<script>
+
+</script>
+</body>
+</html>
