@@ -24,9 +24,11 @@ SERVER = args.server
 # ------------------------------------------
 # 1. Register at dispatcher
 # ------------------------------------------
-res = requests.post(f"{SERVER}/register", json={"robot": ROBOT_ID})
+res = requests.post(f"{SERVER}/register", json={"robotName": ROBOT_ID})
 info = res.json()
-UDP_PORT = info["udp_port"]
+
+# Usar puerto fijo del robot
+UDP_PORT = info["port_robot"]
 DISPATCHER_ADDR = ("127.0.0.1", 9999)
 
 print(f"[{ROBOT_ID}] UDP assigned:", UDP_PORT)
@@ -80,13 +82,11 @@ def send_state():
         # Enviar GPS solo si cambia
         if state["pos"][0] != last_gps_sent[0] or state["pos"][1] != last_gps_sent[1]:
             last_gps_sent = [state["pos"][0], state["pos"][1]]
-            info_text += f"GPS sent -> pos: {state['pos']} "
             send_info = True
 
         # Enviar colisión solo si cambia
         if state["collision"] != last_collision_sent and state["collision"]:
             last_collision_sent = state["collision"]
-            info_text += f"Collision sent -> {state['collision']} "
             send_info = True
 
         if send_info:
@@ -128,7 +128,6 @@ def receiver():
                 if y is not None: state["pos"][1] = y
 
             elif cmd == "set_collision":
-                # Permite simular colisión manualmente
                 state["collision"] = bool(packet["data"].get("collision", False))
 
         elif packet.get("type") == "state_info":
