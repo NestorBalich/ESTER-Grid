@@ -208,12 +208,24 @@ function generate_rescue(){
     objects.push({ x:z.x, y:z.y, type:'zona', name:z.name, color: zoneColors[z.key], width:zoneWidth, height:zoneHeight, role:'zone', zoneColor:itemColors[z.key] });
   }
   // 3 objetos movibles de cada color (total 9)
+  // Los objetos NO deben aparecer en su zona objetivo
   const itemSize = 20;
+  const zoneMap = { red:0, green:1, blue:2 }; // índice de zona
+  
   for(const ckey of ['red','green','blue']){
     const col = itemColors[ckey];
+    const targetZoneIdx = zoneMap[ckey];
+    
     for(let i=0; i<3; i++){
-      const x = 100 + Math.random()*(WINDOW_W-200);
-      const y = 50 + Math.random()*(WINDOW_H-100);
+      let x, y, valid;
+      do {
+        x = 100 + Math.random()*(WINDOW_W-200);
+        y = 50 + Math.random()*(WINDOW_H-100);
+        // Verificar que NO esté en su zona objetivo
+        const zoneIdx = Math.floor(x / zoneWidth);
+        valid = (zoneIdx !== targetZoneIdx);
+      } while(!valid);
+      
       objects.push({ x, y, type:'movible', name:`item_${ckey}_${i}`, color: col, width:itemSize, height:itemSize, role:'item', targetColor: col });
     }
   }
