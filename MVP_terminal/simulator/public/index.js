@@ -233,17 +233,43 @@ function draw(){
   }
 
   // dibujar robots
-for(const rb of robots){
-  const x = rb.x;
-  const y = rb.y;
+ // mapa rápido para búsqueda de físicos
+ const robotMap = {};
+ for(const r of robots){ robotMap[r.id] = r; }
+ for(const rb of robots){
+  let x = rb.x;
+  let y = rb.y;
   const rot = rb.rot || 0;
   const as = animState[rb.id] || {};
 
   if (as.hidden) continue; // no dibujar mientras oculto
 
   // determinar color y alpha
+  const isTwin = rb.id.startsWith('TWIN_');
+  if(isTwin){
+    // soporte nombres: PHYS_X vs TWIN_X
+    const core = rb.id.substring(5); // quitar 'TWIN_'
+    const directPhys = 'PHYS_' + core;
+    let physRobot = robotMap[directPhys];
+    if(!physRobot){
+      // fallback: exact core (si físico no tiene prefijo PHYS_)
+      physRobot = robotMap[core];
+    }
+    if(!physRobot){
+      // búsqueda heurística: cualquier físico que termine en core
+      for(const k in robotMap){
+        if(k.startsWith('PHYS_') && k.endsWith(core)){ physRobot = robotMap[k]; break; }
+      }
+    }
+    if(physRobot){
+      x = physRobot.x;
+      y = physRobot.y;
+    }
+  }
   const drawColor = (as.white) ? [255,255,255] : (rb.color || [200,200,200]);
-  const drawAlpha = as.alpha !== undefined ? as.alpha : 1;
+  // gemelos son más transparentes
+  let drawAlpha = as.alpha !== undefined ? as.alpha : 1;
+  if(isTwin) drawAlpha = Math.min(drawAlpha, 0.35);
 
   ctx.save();
   ctx.globalAlpha = drawAlpha;
@@ -256,16 +282,44 @@ for(const rb of robots){
     ctx.fill();
   }
 
-  // dibujar robot
+  // dibujar robot (gemelo con borde punteado)
   ctx.fillStyle = `rgb(${drawColor[0]},${drawColor[1]},${drawColor[2]})`;
   ctx.beginPath();
-  ctx.arc(x, y, 10, 0, 2*Math.PI); // radio en coordenadas base
+  ctx.arc(x, y, 10, 0, 2*Math.PI);
   ctx.fill();
+  if(isTwin){
+    ctx.save();
+    ctx.setLineDash([3,3]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, 2*Math.PI);
+    ctx.stroke();
+    ctx.restore();
+    // halo naranja neón para distinguir gemelo
+    ctx.save();
+    const haloGrad = ctx.createRadialGradient(x, y, 8, x, y, 28);
+    haloGrad.addColorStop(0, 'rgba(255,180,0,0.65)');       // centro brillante
+    haloGrad.addColorStop(0.35, 'rgba(255,150,0,0.45)');
+    haloGrad.addColorStop(0.7, 'rgba(255,120,0,0.22)');
+    haloGrad.addColorStop(1, 'rgba(255,100,0,0)');          // fade out
+    ctx.fillStyle = haloGrad;
+    ctx.beginPath();
+    ctx.arc(x, y, 28, 0, 2*Math.PI);
+    ctx.fill();
+    // anillo externo fino naranja
+    ctx.strokeStyle = 'rgba(255,150,0,0.85)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(x, y, 19, 0, 2*Math.PI);
+    ctx.stroke();
+    ctx.restore();
+  }
 
-  // dibujar dirección
+  // dibujar dirección (gemelos con línea más tenue)
   const dx = 15 * Math.cos(rot * Math.PI / 180);
   const dy = 15 * Math.sin(rot * Math.PI / 180);
-  ctx.strokeStyle = "#ff0";
+  ctx.strokeStyle = isTwin ? "rgba(255,255,0,0.4)" : "#ff0";
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(x + dx, y + dy);
@@ -279,8 +333,8 @@ for(const rb of robots){
     ctx.font = `${fontSize}px sans-serif`;
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(rb.id, x + 14, y - 14);
+    ctx.fillStyle = isTwin ? "rgba(255,255,255,0.7)" : "#ffffff";
+    ctx.fillText(rb.id + (isTwin?" (gemelo)":""), x + 14, y - 14);
   }
 
   ctx.restore();
@@ -294,7 +348,9 @@ function updatePanel(){
   robotList.innerHTML = "";
   for(const rb of robots){
     const li = document.createElement("li");
-    li.textContent = rb.id + (rb.collision?.collision?" (COL)":"");
+    const isTwin = rb.id.startsWith('TWIN_');
+    const showCol = !isTwin && rb.collision?.collision;
+    li.textContent = rb.id + (showCol?" (COL)":"");
     robotList.appendChild(li);
   }
   const rescueLine = (currentScenario==='rescate' && rescueInfo)? `<div style="color:#0af">Rescate: ${rescueInfo.placed}/${rescueInfo.total} ${rescueInfo.done? '✔️':''}</div>`:'';

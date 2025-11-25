@@ -23,6 +23,7 @@ const SIM_HOST = "127.0.0.1";
 let nextIndex = 0;
 const robots = {}; // socket.id -> { sendPort, recvPort, udpSocket }
 const udpEndpoints = {}; // robotId/name -> { address, port, lastSeen }
+const twinPairs = {}; // robotId -> twinId (bidirectional mapping)
 
 server.listen(6029, () => console.log("Dispatcher Socket.IO escuchando en puerto 6029"));
 
@@ -45,6 +46,23 @@ io.on("connection", (socket) => {
       udpSocket.send(msg, UDP_DISPATCHER_TO_SIM, SIM_HOST, (err) => {
         if (err) console.log(`Error reenviando a simulador: ${err}`);
       });
+
+      // --- REPLICACIÓN A GEMELO ---
+      const src = packet.src || packet.name;
+      if(src && packet.type === "state"){
+        const twinId = twinPairs[src];
+        if(twinId){
+          const twinEp = udpEndpoints[twinId];
+          if(twinEp){
+            const mirroredPacket = { ...packet, mirrored_from: src, via: "dispatcher_twin" };
+            const twinBuf = Buffer.from(JSON.stringify(mirroredPacket));
+            udpSocket.send(twinBuf, twinEp.port, twinEp.address, (err) => {
+              if (err) console.log(`[TWIN] Error replicando a gemelo: ${err}`);
+              else console.log(`[TWIN] Estado de ${src} replicado a gemelo ${twinId}`);
+            });
+          }
+        }
+      }
 
     } catch (e) {
       console.log("Error parseando paquete UDP:", e);
@@ -103,6 +121,45 @@ udpMsgSocket.on("message", (msg, rinfo) => {
     return;
   }
 
+  if(packet.type === "twin_register"){
+    const twinId = packet.twin || packet.twin_id;
+    if(!twinId){
+      sendUdpJson(rinfo.address, rinfo.port, { type: "error", code: "missing_twin_id", message: "Se requiere 'twin' o 'twin_id'." });
+      return;
+    }
+    // Registrar par gemelo bidireccional
+    twinPairs[src] = twinId;
+    twinPairs[twinId] = src;
+    sendUdpJson(rinfo.address, rinfo.port, { type: "twin_ack", src: "dispatcher", robot: src, twin: twinId });
+    console.log(`[TWIN] Par gemelo registrado: ${src} <-> ${twinId}`);
+    return;
+  }
+
+  if(packet.type === "twin_unregister"){
+    const twin = twinPairs[src];
+    if(twin){
+      delete twinPairs[twin];
+      delete twinPairs[src];
+      sendUdpJson(rinfo.address, rinfo.port, { type: "twin_unregister_ack", src: "dispatcher", robot: src });
+      console.log(`[TWIN] Par gemelo eliminado: ${src} <-> ${twin}`);
+    }
+    return;
+  }
+
+  if(packet.type === "state"){
+    // Si este robot tiene gemelo, reenviar el estado al gemelo
+    const twinId = twinPairs[src];
+    if(twinId){
+      const twinEp = udpEndpoints[twinId];
+      if(twinEp){
+        const mirroredPacket = { ...packet, mirrored_from: src, via: "dispatcher_twin" };
+        sendUdpJson(twinEp.address, twinEp.port, mirroredPacket);
+        console.log(`[TWIN] Estado de ${src} replicado a gemelo ${twinId}`);
+      }
+    }
+    return;
+  }
+
   if(packet.type === "msg" || packet.type === "reply"){
     const to = packet.to || packet.dest || packet.target;
     if(!to){
@@ -118,6 +175,17 @@ udpMsgSocket.on("message", (msg, rinfo) => {
     const mid = packet.mid || packet.id || `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const out = { ...packet, mid, via: "dispatcher" };
     sendUdpJson(dest.address, dest.port, out);
+    
+    // Si el destinatario tiene gemelo, también enviar al gemelo
+    const twinId = twinPairs[to];
+    if(twinId){
+      const twinEp = udpEndpoints[twinId];
+      if(twinEp){
+        const mirroredMsg = { ...out, twin_copy: true, original_dest: to };
+        sendUdpJson(twinEp.address, twinEp.port, mirroredMsg);
+        console.log(`[TWIN] Mensaje a ${to} también enviado a gemelo ${twinId}`);
+      }
+    }
     return;
   }
 

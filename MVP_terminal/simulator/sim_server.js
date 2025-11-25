@@ -265,13 +265,19 @@ sock.on("message", (msg, rinfo) => {
     const cmd = packet.cmd || packet.data?.cmd || null;
     const cmdData = packet.cmdData || packet.data || null;
 
-    const name = packet.name || packet.data?.name || rid;
+    let name = packet.name || packet.data?.name || rid;
+    // Forzar que los gemelos mantengan su id como nombre para no perder el prefijo TWIN_
+    if(rid.startsWith('TWIN_')) name = rid;
     if (!robots[rid]) {
       robots[rid] = { name, x: px, y: py, tx: px, ty: py, rot, last_seen: Date.now()/1000, alpha: 255, color, collision: {collision:false}, cmd:null, data:null, distance:0, collisions_count:0 };
       logEvent('robot_join', { id: rid, name, x: px, y: py });
     } else {
-      // allow dynamic rename if provided
-      robots[rid].name = name;
+      // Evitar renombrar gemelos a un nombre sin prefijo
+      if(!rid.startsWith('TWIN_')){
+        robots[rid].name = name;
+      } else {
+        robots[rid].name = rid; // asegurar persistencia del prefijo
+      }
     }
 
     const rb = robots[rid];
@@ -325,6 +331,8 @@ app.get('/scenario/:type', (req,res)=>{
 // Movimiento y colisiones
 // ----------------------------
 function apply_movement(rb, robotId){
+  // Detectar gemelo por ID (más robusto que por nombre para evitar renames replicados)
+  const isTwin = robotId.startsWith('TWIN_');
   let dx = rb.tx - rb.x;
   let dy = rb.ty - rb.y;
   const dist = Math.sqrt(dx*dx+dy*dy);
@@ -334,74 +342,55 @@ function apply_movement(rb, robotId){
   const move_dy = dy/dist * Math.min(dist,ROBOT_SPEED);
   let collision_info = null;
 
-  // Verificar colisión con otros robots
-  for(const [otherId, otherRobot] of Object.entries(robots)){
-    if(otherId === robotId) continue; // no chocar consigo mismo
-    
-    const dist_x = Math.abs(rb.x+move_dx - otherRobot.x);
-    const dist_y = Math.abs(rb.y+move_dy - otherRobot.y);
-    const overlap = (ROBOT_SIZE * 2) - Math.sqrt(dist_x*dist_x + dist_y*dist_y);
-    
-    if(overlap > 0){
-      // Calcular lado de colisión
-      const relX = (rb.x+move_dx) - otherRobot.x;
-      const relY = (rb.y+move_dy) - otherRobot.y;
-      const angleToObj = Math.atan2(relY, relX) * (180 / Math.PI);
-      const robotAngle = ((rb.rot % 360) + 360) % 360;
-      let relativeAngle = ((angleToObj - robotAngle) + 360) % 360;
-      
-      let side = '';
-      if (relativeAngle >= 315 || relativeAngle < 45) {
-        side = 'frente';
-      } else if (relativeAngle >= 45 && relativeAngle < 135) {
-        side = 'izquierda';
-      } else if (relativeAngle >= 135 && relativeAngle < 225) {
-        side = 'atrás';
-      } else {
-        side = 'derecha';
+  if(!isTwin){
+    // Verificar colisión con otros robots (ignorar gemelos como obstáculos)
+    for(const [otherId, otherRobot] of Object.entries(robots)){
+      if(otherId === robotId) continue;
+      if(otherRobot.name && otherRobot.name.startsWith('TWIN_')) continue; // gemelos no bloquean
+      const dist_x = Math.abs(rb.x+move_dx - otherRobot.x);
+      const dist_y = Math.abs(rb.y+move_dy - otherRobot.y);
+      const overlap = (ROBOT_SIZE * 2) - Math.sqrt(dist_x*dist_x + dist_y*dist_y);
+      if(overlap > 0){
+        const relX = (rb.x+move_dx) - otherRobot.x;
+        const relY = (rb.y+move_dy) - otherRobot.y;
+        const angleToObj = Math.atan2(relY, relX) * (180 / Math.PI);
+        const robotAngle = ((rb.rot % 360) + 360) % 360;
+        let relativeAngle = ((angleToObj - robotAngle) + 360) % 360;
+        let side = '';
+        if (relativeAngle >= 315 || relativeAngle < 45) side = 'frente';
+        else if (relativeAngle >= 45 && relativeAngle < 135) side = 'izquierda';
+        else if (relativeAngle >= 135 && relativeAngle < 225) side = 'atrás';
+        else side = 'derecha';
+        const colorName = otherRobot.color ? `RGB(${Math.round(otherRobot.color[0])},${Math.round(otherRobot.color[1])},${Math.round(otherRobot.color[2])})` : 'sin color';
+        collision_info = {collision:true, type:'robot', name:otherRobot.name, color:colorName, side:side};
+        return [false, collision_info, 0];
       }
-      
-      const colorName = otherRobot.color ? `RGB(${Math.round(otherRobot.color[0])},${Math.round(otherRobot.color[1])},${Math.round(otherRobot.color[2])})` : 'sin color';
-      collision_info = {collision:true, type:'robot', name:otherRobot.name, color:colorName, side:side};
-      return [false, collision_info, 0]; // no mover si choca con robot
     }
   }
 
-  // Verificar colisión con objetos
-  for(const obj of objects){
-    const dist_x = Math.abs(rb.x+move_dx - obj.x);
-    const dist_y = Math.abs(rb.y+move_dy - obj.y);
-    const overlap_x = (ROBOT_SIZE + obj.width/2) - dist_x;
-    const overlap_y = (ROBOT_SIZE + obj.height/2) - dist_y;
-    if(overlap_x>0 && overlap_y>0){
-      // Calcular ángulo de colisión relativo al objeto
-      const relX = (rb.x+move_dx) - obj.x;
-      const relY = (rb.y+move_dy) - obj.y;
-      const angleToObj = Math.atan2(relY, relX) * (180 / Math.PI); // ángulo en grados
-      
-      // Normalizar rotación del robot (0-360)
-      const robotAngle = ((rb.rot % 360) + 360) % 360;
-      
-      // Calcular ángulo relativo (diferencia entre dirección del robot y objeto)
-      let relativeAngle = ((angleToObj - robotAngle) + 360) % 360;
-      
-      // Determinar lado del robot según ángulo relativo
-      let side = '';
-      if (relativeAngle >= 315 || relativeAngle < 45) {
-        side = 'frente';
-      } else if (relativeAngle >= 45 && relativeAngle < 135) {
-        side = 'izquierda';
-      } else if (relativeAngle >= 135 && relativeAngle < 225) {
-        side = 'atrás';
-      } else {
-        side = 'derecha';
+  if(!isTwin){
+    // Verificar colisión con objetos (gemelos ignoran objetos)
+    for(const obj of objects){
+      const dist_x = Math.abs(rb.x+move_dx - obj.x);
+      const dist_y = Math.abs(rb.y+move_dy - obj.y);
+      const overlap_x = (ROBOT_SIZE + obj.width/2) - dist_x;
+      const overlap_y = (ROBOT_SIZE + obj.height/2) - dist_y;
+      if(overlap_x>0 && overlap_y>0){
+        const relX = (rb.x+move_dx) - obj.x;
+        const relY = (rb.y+move_dy) - obj.y;
+        const angleToObj = Math.atan2(relY, relX) * (180 / Math.PI);
+        const robotAngle = ((rb.rot % 360) + 360) % 360;
+        let relativeAngle = ((angleToObj - robotAngle) + 360) % 360;
+        let side='';
+        if (relativeAngle >= 315 || relativeAngle < 45) side='frente';
+        else if (relativeAngle >= 45 && relativeAngle < 135) side='izquierda';
+        else if (relativeAngle >= 135 && relativeAngle < 225) side='atrás';
+        else side='derecha';
+        const colorName = obj.color ? `RGB(${Math.round(obj.color[0])},${Math.round(obj.color[1])},${Math.round(obj.color[2])})` : 'sin color';
+        collision_info = {collision:true, type:obj.type, name:obj.name, color:colorName, side:side};
+        if(obj.type==="movible"){ obj.x += move_dx; obj.y += move_dy; }
+        else { return [false, collision_info, 0]; }
       }
-      
-      const colorName = obj.color ? `RGB(${Math.round(obj.color[0])},${Math.round(obj.color[1])},${Math.round(obj.color[2])})` : 'sin color';
-      collision_info = {collision:true, type:obj.type, name:obj.name, color:colorName, side:side};
-      
-      if(obj.type==="movible"){ obj.x += move_dx; obj.y += move_dy; }
-      else { return [false, collision_info, 0]; }
     }
   }
 
