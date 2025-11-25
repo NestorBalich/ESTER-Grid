@@ -113,9 +113,14 @@ function teleportRobot(rb, targetX, targetY, targetRot) {
 
 
 
+let currentScenario = 'futbol';
+let rescueInfo = null;
+
 socket.on("state_update", data => {
   objects = data.objects;
   collisions = data.collisions || [];
+  currentScenario = data.scenario || currentScenario;
+  rescueInfo = data.rescue || rescueInfo;
 
   // Normalizar robots: asignar id = name, x/y = pos[0]/pos[1]
   robots = data.robots.map(rb => ({
@@ -178,35 +183,55 @@ function draw(){
 
   ctx.save();
   ctx.scale(scaleX, scaleY);
-
-  // dibujar cancha de fútbol (basada en dimensiones base)
-  ctx.fillStyle = "#165616"; // verde césped
-  ctx.fillRect(0,0,BASE_W,BASE_H);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2 / Math.max(scaleX, scaleY); // ajustar grosor visual
-
-  ctx.strokeRect(0,0,BASE_W,BASE_H);
-
-  // línea central
-  ctx.beginPath();
-  ctx.moveTo(BASE_W/2, 0);
-  ctx.lineTo(BASE_W/2, BASE_H);
-  ctx.stroke();
-
-  // círculo central
-  ctx.beginPath();
-  ctx.arc(BASE_W/2, BASE_H/2, BASE_H/6, 0, 2*Math.PI);
-  ctx.stroke();
-
-  // áreas de gol (simplificado)
-  ctx.strokeRect(0, BASE_H/4, BASE_W*0.1, BASE_H/2);
-  ctx.strokeRect(BASE_W*0.9, BASE_H/4, BASE_W*0.1, BASE_H/2);
+  // Fondo por escenario
+  if(currentScenario==='futbol'){
+    ctx.fillStyle = "#165616"; // verde césped
+    ctx.fillRect(0,0,BASE_W,BASE_H);
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2 / Math.max(scaleX, scaleY);
+    ctx.strokeRect(0,0,BASE_W,BASE_H);
+    ctx.beginPath();
+    ctx.moveTo(BASE_W/2, 0);
+    ctx.lineTo(BASE_W/2, BASE_H);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(BASE_W/2, BASE_H/2, BASE_H/6, 0, 2*Math.PI);
+    ctx.stroke();
+    ctx.strokeRect(0, BASE_H/4, BASE_W*0.1, BASE_H/2);
+    ctx.strokeRect(BASE_W*0.9, BASE_H/4, BASE_W*0.1, BASE_H/2);
+  } else if(currentScenario==='laberinto') {
+    // Piso amarillo claro
+    ctx.fillStyle = "#ffe9a8";
+    ctx.fillRect(0,0,BASE_W,BASE_H);
+  } else if(currentScenario==='obstaculos') {
+    // Fondo gris neutro suave (menos brillo)
+    ctx.fillStyle = "#cfd2d3"; // puedes probar alternativas: #d4d6d8, #c7cbcc
+    ctx.fillRect(0,0,BASE_W,BASE_H);
+  }
 
   // dibujar objetos (las coordenadas ya están en el espacio base)
   for(const obj of objects){
-    ctx.fillStyle = `rgb(${obj.color[0]},${obj.color[1]},${obj.color[2]})`;
-    ctx.fillRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);
+    let fill = `rgb(${obj.color[0]},${obj.color[1]},${obj.color[2]})`;
+    if(obj.role==='zone'){
+      // revert: dibujar zona completa sin transparencia especial
+      ctx.fillStyle = fill;
+      ctx.fillRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);
+    } else if(obj.name==='goal_center'){
+      // resaltar goal con borde
+      ctx.fillStyle = fill;
+      ctx.fillRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2 / Math.max(scaleX, scaleY);
+      ctx.strokeRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText('META', obj.x, obj.y);
+    } else {
+      ctx.fillStyle = fill;
+      ctx.fillRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);
+    }
   }
 
   // dibujar robots
@@ -274,7 +299,17 @@ function updatePanel(){
     li.textContent = rb.id + (rb.collision?.collision?" (COL)":"");
     robotList.appendChild(li);
   }
-  panelCollitions.innerHTML = collisions.map(c=>`<div>${c}</div>`).join("");
+  const rescueLine = (currentScenario==='rescate' && rescueInfo)? `<div style="color:#0af">Rescate: ${rescueInfo.placed}/${rescueInfo.total} ${rescueInfo.done? '✔️':''}</div>`:'';
+  if(panelCollitions.style){ panelCollitions.style.background = '#111'; }
+  panelCollitions.innerHTML = rescueLine + collisions.map(c=>`<div>${c}</div>`).join("");
+  // toggle controles objetos según escenario
+  const objCountInput = document.getElementById('objCount');
+  const regenBtn = document.getElementById('regenBtn');
+  if(objCountInput && regenBtn){
+    const enabled = currentScenario==='obstaculos';
+    objCountInput.disabled = !enabled;
+    regenBtn.disabled = !enabled;
+  }
 }
 
  function appendStatus(msg) {
@@ -420,6 +455,15 @@ window.clearOutput = function clearOutput() {
       draw();
     }
   });
+
+  // Escenario selector
+  const scenarioSelect = document.getElementById('scenarioSelect');
+  if(scenarioSelect){
+    scenarioSelect.addEventListener('change', e=>{
+      const val = e.target.value;
+      fetch(`/scenario/${val}`).then(()=>appendStatus(`🗺️ Escenario cambiado a ${val}`)).catch(()=>appendStatus('⚠️ Error cambiando escenario'));
+    });
+  }
 
 // ==============================
   // 📂 Cargar ejemplo Python en el editor (selector de ejemplos)
