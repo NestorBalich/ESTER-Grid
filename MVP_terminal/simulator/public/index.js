@@ -15,6 +15,10 @@ let collisions = [];
 // client-side animation state per robot (persists across server updates)
 const animState = {};
 
+// Dimensiones base del mundo (se usan para escalar en fullscreen)
+const BASE_W = canvas.width;
+const BASE_H = canvas.height;
+
 // Placeholder cámara
 function drawCamPlaceholder(){
   camCtx.fillStyle="#222";
@@ -169,36 +173,40 @@ socket.on("state_update", data => {
 
 
 function draw(){
-  // dibujar cancha de fútbol
-  ctx.fillStyle = "#165616ff"; // verde césped
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  const scaleX = canvas.width / BASE_W;
+  const scaleY = canvas.height / BASE_H;
 
-  // líneas de cancha (proporción simple)
+  ctx.save();
+  ctx.scale(scaleX, scaleY);
+
+  // dibujar cancha de fútbol (basada en dimensiones base)
+  ctx.fillStyle = "#165616"; // verde césped
+  ctx.fillRect(0,0,BASE_W,BASE_H);
+
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2 / Math.max(scaleX, scaleY); // ajustar grosor visual
 
-  // líneas de borde
-  ctx.strokeRect(0,0,canvas.width,canvas.height);
+  ctx.strokeRect(0,0,BASE_W,BASE_H);
 
   // línea central
   ctx.beginPath();
-  ctx.moveTo(canvas.width/2, 0);
-  ctx.lineTo(canvas.width/2, canvas.height);
+  ctx.moveTo(BASE_W/2, 0);
+  ctx.lineTo(BASE_W/2, BASE_H);
   ctx.stroke();
 
   // círculo central
   ctx.beginPath();
-  ctx.arc(canvas.width/2, canvas.height/2, canvas.height/6, 0, 2*Math.PI);
+  ctx.arc(BASE_W/2, BASE_H/2, BASE_H/6, 0, 2*Math.PI);
   ctx.stroke();
 
   // áreas de gol (simplificado)
-  ctx.strokeRect(0, canvas.height/4, canvas.width*0.1, canvas.height/2);
-  ctx.strokeRect(canvas.width*0.9, canvas.height/4, canvas.width*0.1, canvas.height/2);
+  ctx.strokeRect(0, BASE_H/4, BASE_W*0.1, BASE_H/2);
+  ctx.strokeRect(BASE_W*0.9, BASE_H/4, BASE_W*0.1, BASE_H/2);
 
-  // dibujar objetos
+  // dibujar objetos (las coordenadas ya están en el espacio base)
   for(const obj of objects){
     ctx.fillStyle = `rgb(${obj.color[0]},${obj.color[1]},${obj.color[2]})`;
-    ctx.fillRect(obj.x-obj.width/2,obj.y-obj.height/2,obj.width,obj.height);
+    ctx.fillRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);
   }
 
   // dibujar robots
@@ -228,7 +236,7 @@ for(const rb of robots){
   // dibujar robot
   ctx.fillStyle = `rgb(${drawColor[0]},${drawColor[1]},${drawColor[2]})`;
   ctx.beginPath();
-  ctx.arc(x, y, 10, 0, 2*Math.PI);
+  ctx.arc(x, y, 10, 0, 2*Math.PI); // radio en coordenadas base
   ctx.fill();
 
   // dibujar dirección
@@ -241,16 +249,23 @@ for(const rb of robots){
   ctx.stroke();
 
   // dibujar nombre solo si showName
+  // Asegurar fuente y dibujar nombre (siempre visible salvo hidden)
+  if (as.showName === undefined) as.showName = true; // default: mostrar
   if (as.showName) {
-    ctx.fillStyle = "#fff";
-    ctx.fillText(rb.id, x+12, y-12);
+    const fontSize = 12; // tamaño base
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(rb.id, x + 14, y - 14);
+  }
+
+  ctx.restore();
   }
 
   ctx.restore();
 }
 
-
-}
 
 function updatePanel(){
   robotList.innerHTML = "";
@@ -346,6 +361,65 @@ window.clearOutput = function clearOutput() {
     if (window.runCode) window.runCode();
   });
 });
+
+  // ==============================
+  // 🖥️ Pantalla completa del canvas del simulador (doble click)
+  // ==============================
+  let originalCanvasSize = { w: canvas.width, h: canvas.height };
+
+  function enterSimFullscreen(){
+    originalCanvasSize = { w: canvas.width, h: canvas.height };
+    // Ajustar tamaño real del canvas al viewport
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    appendStatus('🖥️ Canvas simulador en pantalla completa');
+    draw();
+  }
+
+  function exitSimFullscreen(){
+    // Restaurar tamaño original
+    canvas.width = originalCanvasSize.w;
+    canvas.height = originalCanvasSize.h;
+    canvas.style.width = '';
+    canvas.style.height = '';
+    appendStatus('↩️ Canvas simulador fuera de pantalla completa');
+    draw();
+  }
+
+  function toggleSimFullscreen(){
+    if (!document.fullscreenElement){
+      if (canvas.requestFullscreen){
+        canvas.requestFullscreen().then(()=>enterSimFullscreen()).catch(()=>enterSimFullscreen());
+      } else {
+        enterSimFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen){
+        document.exitFullscreen().then(()=>exitSimFullscreen()).catch(()=>exitSimFullscreen());
+      } else {
+        exitSimFullscreen();
+      }
+    }
+  }
+
+  canvas.addEventListener('dblclick', toggleSimFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement){
+      // Al salir por ESC
+      exitSimFullscreen();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    // Si seguimos en fullscreen, ajustar a nuevo tamaño
+    if (document.fullscreenElement === canvas){
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      draw();
+    }
+  });
 
 // ==============================
   // 📂 Cargar ejemplo Python en el editor (selector de ejemplos)
