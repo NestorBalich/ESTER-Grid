@@ -324,7 +324,7 @@ app.get('/scenario/:type', (req,res)=>{
 // ----------------------------
 // Movimiento y colisiones
 // ----------------------------
-function apply_movement(rb){
+function apply_movement(rb, robotId){
   let dx = rb.tx - rb.x;
   let dy = rb.ty - rb.y;
   const dist = Math.sqrt(dx*dx+dy*dy);
@@ -334,13 +334,72 @@ function apply_movement(rb){
   const move_dy = dy/dist * Math.min(dist,ROBOT_SPEED);
   let collision_info = null;
 
+  // Verificar colisión con otros robots
+  for(const [otherId, otherRobot] of Object.entries(robots)){
+    if(otherId === robotId) continue; // no chocar consigo mismo
+    
+    const dist_x = Math.abs(rb.x+move_dx - otherRobot.x);
+    const dist_y = Math.abs(rb.y+move_dy - otherRobot.y);
+    const overlap = (ROBOT_SIZE * 2) - Math.sqrt(dist_x*dist_x + dist_y*dist_y);
+    
+    if(overlap > 0){
+      // Calcular lado de colisión
+      const relX = (rb.x+move_dx) - otherRobot.x;
+      const relY = (rb.y+move_dy) - otherRobot.y;
+      const angleToObj = Math.atan2(relY, relX) * (180 / Math.PI);
+      const robotAngle = ((rb.rot % 360) + 360) % 360;
+      let relativeAngle = ((angleToObj - robotAngle) + 360) % 360;
+      
+      let side = '';
+      if (relativeAngle >= 315 || relativeAngle < 45) {
+        side = 'frente';
+      } else if (relativeAngle >= 45 && relativeAngle < 135) {
+        side = 'izquierda';
+      } else if (relativeAngle >= 135 && relativeAngle < 225) {
+        side = 'atrás';
+      } else {
+        side = 'derecha';
+      }
+      
+      const colorName = otherRobot.color ? `RGB(${Math.round(otherRobot.color[0])},${Math.round(otherRobot.color[1])},${Math.round(otherRobot.color[2])})` : 'sin color';
+      collision_info = {collision:true, type:'robot', name:otherRobot.name, color:colorName, side:side};
+      return [false, collision_info, 0]; // no mover si choca con robot
+    }
+  }
+
+  // Verificar colisión con objetos
   for(const obj of objects){
     const dist_x = Math.abs(rb.x+move_dx - obj.x);
     const dist_y = Math.abs(rb.y+move_dy - obj.y);
     const overlap_x = (ROBOT_SIZE + obj.width/2) - dist_x;
     const overlap_y = (ROBOT_SIZE + obj.height/2) - dist_y;
     if(overlap_x>0 && overlap_y>0){
-      collision_info = {collision:true,type:obj.type,name:obj.name};
+      // Calcular ángulo de colisión relativo al objeto
+      const relX = (rb.x+move_dx) - obj.x;
+      const relY = (rb.y+move_dy) - obj.y;
+      const angleToObj = Math.atan2(relY, relX) * (180 / Math.PI); // ángulo en grados
+      
+      // Normalizar rotación del robot (0-360)
+      const robotAngle = ((rb.rot % 360) + 360) % 360;
+      
+      // Calcular ángulo relativo (diferencia entre dirección del robot y objeto)
+      let relativeAngle = ((angleToObj - robotAngle) + 360) % 360;
+      
+      // Determinar lado del robot según ángulo relativo
+      let side = '';
+      if (relativeAngle >= 315 || relativeAngle < 45) {
+        side = 'frente';
+      } else if (relativeAngle >= 45 && relativeAngle < 135) {
+        side = 'izquierda';
+      } else if (relativeAngle >= 135 && relativeAngle < 225) {
+        side = 'atrás';
+      } else {
+        side = 'derecha';
+      }
+      
+      const colorName = obj.color ? `RGB(${Math.round(obj.color[0])},${Math.round(obj.color[1])},${Math.round(obj.color[2])})` : 'sin color';
+      collision_info = {collision:true, type:obj.type, name:obj.name, color:colorName, side:side};
+      
       if(obj.type==="movible"){ obj.x += move_dx; obj.y += move_dy; }
       else { return [false, collision_info, 0]; }
     }
@@ -384,16 +443,16 @@ setInterval(()=>{
 
   for(const rid in robots){
     const rb = robots[rid];
-    const [moved, collision, distMoved] = apply_movement(rb);
+    const [moved, collision, distMoved] = apply_movement(rb, rid);
     if(moved && distMoved>0){ rb.distance += distMoved; }
     if(now - rb.last_seen > TIMEOUT_SEC) rb.alpha -= FADE_SPEED*255;
     if(rb.alpha<0) rb.alpha=0;
 
     if(collision){
       rb.collision = collision;
-      collisions.push(`${rid} chocó con ${collision.name}`);
+      collisions.push(`${rid} chocó con ${collision.name} (${collision.color}) por ${collision.side}`);
       rb.collisions_count += 1;
-      logEvent('collision', { id: rid, name: rb.name, with: collision.name, type: collision.type });
+      logEvent('collision', { id: rid, name: rb.name, with: collision.name, type: collision.type, color: collision.color, side: collision.side });
     } else {
       rb.collision = {collision:false};
     }
@@ -438,7 +497,8 @@ io.on('connection', socket=>{
       if(err) return socket.emit('panel_output','❌ Error al guardar archivo.\n');
 
       const pythonCmd = process.platform==='win32'?'python':'python3';
-      const pyProcess = spawn(pythonCmd,[tempFile]);
+      // Agregar -u para unbuffered output (logs en tiempo real)
+      const pyProcess = spawn(pythonCmd,['-u', tempFile]);
 
       const timeout = setTimeout(()=>{
         pyProcess.kill();
@@ -446,10 +506,29 @@ io.on('connection', socket=>{
         fs.unlink(tempFile,()=>{});
       },60000);
 
-      pyProcess.stdout.on('data',(data)=>socket.emit('panel_output',data.toString()));
+      let buffer = '';
+      pyProcess.stdout.on('data',(data)=>{
+        buffer += data.toString();
+        // Enviar líneas completas
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Guardar la última línea incompleta
+        lines.forEach(line => {
+          if(line.trim()){ // solo agregar timestamp a líneas no vacías
+            const now = new Date();
+            const timestamp = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
+            socket.emit('panel_output', `${timestamp}: ${line}`);
+          } else {
+            socket.emit('panel_output', line );
+          }
+        });
+      });
+      
       pyProcess.stderr.on('data',(data)=>socket.emit('panel_output',`❌ Error: ${data.toString()}`));
+      
       pyProcess.on('close',(code)=>{
         clearTimeout(timeout);
+        // Enviar buffer restante si existe
+        if(buffer) socket.emit('panel_output', buffer + '\n');
         fs.unlink(tempFile,()=>{});
         socket.emit('panel_output',`\n✔️ Proceso terminado con código ${code}\n`);
       });

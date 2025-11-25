@@ -54,9 +54,11 @@
         <option value="ejemplo2">Girar y avanzar</option>
         <option value="ejemplo3">Mover un robot</option>
         <option value="ejemplo4">Mover dos robot</option>
+        <option value="ejemplo5">4 robots chocando</option>
+        <option value="ejemplo6">30 robots en formación</option>
       </select>
     </div>
-    <div id="panel_output" style="height:40%;background:#111;color:#0f0;overflow:auto;padding:5px;margin-top:5px;font-family:monospace;">
+    <div id="panel_output" style="height:40%;background:#111;color:#0f0;overflow:auto;padding:5px;margin-top:5px;font-family:monospace;white-space:pre-wrap;">
        # Salida de Python
     </div>
   </div>
@@ -70,14 +72,14 @@
 
     <h4>Collitions</h4>
     <div id="panel_collitions"></div>
-    <h4>Status</h4>
+    <h4>Status <button onclick="clearStatus()" style="font-size:10px;padding:2px 5px;">🧹 Limpiar status</button></h4>
     <div id="panel_status"></div>
     <br>
     <div>
         <label>Objetos:</label>
         <input type="number" id="objCount" value="50" min="0" max="200"  style="width:50px;"/>
         <button id="regenBtn">Crear</button>
-        <br/>
+        <br> <br>
         <label>Escenario:</label>
         <select id="scenarioSelect">
           <option value="futbol" selected>Fútbol</option>
@@ -85,6 +87,7 @@
           <option value="obstaculos">Obstáculos</option>
           <option value="rescate">Rescate</option>
         </select>
+        <br> <br>
     </div>
   </div>
 

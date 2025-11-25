@@ -170,8 +170,10 @@ socket.on("state_update", data => {
 
  //recibe la salida de run_code
  socket.on('panel_output', line => {
-  if (typeof panel_output !== "undefined" && panel_output)
-    panel_output.textContent += line;
+  if (typeof panel_output !== "undefined" && panel_output) {
+    panel_output.textContent += line + '\n';
+    panel_output.scrollTop = panel_output.scrollHeight; // Auto-scroll
+  }
   if (typeof runBtn !== "undefined" && runBtn)
     runBtn.disabled = false;
 });
@@ -345,6 +347,11 @@ window.clearEditor = function clearEditor() {
 window.clearOutput = function clearOutput() {
     const panelOutput = document.getElementById("panel_output");
     if (panelOutput) panelOutput.textContent = '';
+  };
+
+window.clearStatus = function clearStatus() {
+    const panelStatus = document.getElementById("panel_status");
+    if (panelStatus) panelStatus.textContent = '';
   };
 
   // ==============================
