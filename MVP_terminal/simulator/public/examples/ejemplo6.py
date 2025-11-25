@@ -19,14 +19,19 @@ SIM_PORT = 10009
 
 NUM_ROBOTS = 30
 SPEED = 2.0
-MIN_DIST = 30  # distancia mínima entre filas
+MIN_DIST = 60  # distancia mínima entre filas (aumentada para menos choques)
 MAX_CYCLES = 3  # número de ciclos antes de terminar
+TICK_RATE = 0.05  # tiempo entre actualizaciones (50ms)
 
 # Estados de movimiento
 STATE_INICIAL = 0
 STATE_AVANZAR = 1
 STATE_RETROCEDER = 2
 STATE_FINALIZADO = 3
+
+# Sincronización global
+tick_lock = threading.Lock()
+tick_event = threading.Event()
 
 def log(msg):
     """Imprime mensaje (el timestamp lo agrega el backend)"""
@@ -104,8 +109,11 @@ class Robot:
         self.teleport(x, y, self.rot)
 
     def coreografia(self, fila_arriba, fila_abajo):
-        """Ejecuta la coreografía de movimiento"""
+        """Ejecuta la coreografía de movimiento (sincronizada por ticks)"""
         while self.estado != STATE_FINALIZADO:
+            # Esperar al próximo tick global
+            tick_event.wait()
+            
             if self.estado == STATE_INICIAL:
                 self.estado = STATE_AVANZAR
 
@@ -133,6 +141,13 @@ class Robot:
                     else:
                         self.estado = STATE_RETROCEDER
 
+                # Desplazamiento lateral suave para espaciar (solo mientras AVANZAR)
+                # Evita alineación perfecta que provoca choques frontales.
+                wave_amp = 10  # píxeles de amplitud
+                wave_speed = 0.8
+                phase = (time.time() * wave_speed) + (self.index * 0.4)
+                self.pos[0] = self.pos_inicial[0] + math.sin(phase) * wave_amp
+
             elif self.estado == STATE_RETROCEDER:
                 # Volver a posición inicial
                 dx = self.pos_inicial[0] - self.pos[0]
@@ -150,7 +165,6 @@ class Robot:
                         self.estado = STATE_INICIAL
 
             self.send_state()
-            time.sleep(0.05)
 
     def start(self, fila_arriba, fila_abajo):
         """Inicia el robot en su hilo de ejecución"""
@@ -185,22 +199,31 @@ if __name__ == "__main__":
     log(f"Robots en movimiento. Ejecutarán {MAX_CYCLES} ciclos y terminarán.")
     print()
     
-    # Monitorear progreso desde el hilo principal
+    # Bucle de sincronización global (maestro de ticks)
     ciclo_anterior = 0
+    tick_count = 0
+    
     while any(r.estado != STATE_FINALIZADO for r in robots):
-        time.sleep(0.5)
-        # Mostrar progreso
-        terminados = sum(1 for r in robots if r.estado == STATE_FINALIZADO)
-        ciclo_actual = max(r.ciclos_completados for r in robots)
+        # Sincronizar: señalar a todos los robots que procesen un paso
+        tick_event.set()
+        time.sleep(TICK_RATE)
+        tick_event.clear()
         
-        if ciclo_actual > ciclo_anterior:
-            log(f"✓ Ciclo {ciclo_actual}/{MAX_CYCLES} completado por algunos robots")
-            ciclo_anterior = ciclo_actual
+        tick_count += 1
         
-        if terminados > 0:
-            activos = [r.robot_id for r in robots if r.estado != STATE_FINALIZADO]
-            if len(activos) <= 5 and len(activos) > 0:
-                log(f"  Esperando a: {', '.join(activos)}")
+        # Mostrar progreso cada cierto tiempo
+        if tick_count % 20 == 0:  # cada ~1 segundo
+            terminados = sum(1 for r in robots if r.estado == STATE_FINALIZADO)
+            ciclo_actual = max(r.ciclos_completados for r in robots)
+            
+            if ciclo_actual > ciclo_anterior:
+                log(f"✓ Ciclo {ciclo_actual}/{MAX_CYCLES} completado por algunos robots")
+                ciclo_anterior = ciclo_actual
+            
+            if terminados > 0:
+                activos = [r.robot_id for r in robots if r.estado != STATE_FINALIZADO]
+                if len(activos) <= 5 and len(activos) > 0:
+                    log(f"  Esperando a: {', '.join(activos)}")
     
     print(f"{'='*60}")
     log(f"¡Programa completado! Los {NUM_ROBOTS} robots completaron {MAX_CYCLES} ciclos.")
