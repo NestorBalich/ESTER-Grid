@@ -349,6 +349,18 @@ window.clearOutput = function clearOutput() {
     if (panelOutput) panelOutput.textContent = '';
   };
 
+window.copyOutput = function copyOutput() {
+    const panelOutput = document.getElementById("panel_output");
+    if (panelOutput) {
+      const text = panelOutput.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        appendStatus("📋 Consola copiada al portapapeles");
+      }).catch(err => {
+        appendStatus("⚠️ Error copiando: " + err.message);
+      });
+    }
+  };
+
 window.clearStatus = function clearStatus() {
     const panelStatus = document.getElementById("panel_status");
     if (panelStatus) panelStatus.textContent = '';

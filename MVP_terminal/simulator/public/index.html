@@ -29,7 +29,7 @@
 </style>
 </head>
 <body>
-<h1>ESTER-GRID MVP</h1>
+<h1>ESTER-GRID</h1>
 
 <div id="middle">
   <!-- Izquierda: cámara -->
@@ -47,8 +47,10 @@
       <button id="runBtn">▶ Ejecutar codigo</button>
       <button onclick="clearEditor()">🧹 Limpiar código</button>
       <button onclick="clearOutput()">🧹 Limpiar consola</button>
+      <button onclick="copyOutput()">📋 Copiar consola</button>
       <select id="selector">
         <option value="">📄 Cargar ejemplo...</option>
+        <option value="ejemplo_test_latido">🧪 TEST: 1 robot latido</option>
         <option value="ejemplo0">Mover cuadrado</option>
         <option value="ejemplo1">Teletrasportar</option>
         <option value="ejemplo2">Girar y avanzar</option>
