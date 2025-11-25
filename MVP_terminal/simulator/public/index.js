@@ -212,11 +212,7 @@ function draw(){
   // dibujar objetos (las coordenadas ya están en el espacio base)
   for(const obj of objects){
     let fill = `rgb(${obj.color[0]},${obj.color[1]},${obj.color[2]})`;
-    if(obj.role==='zone'){
-      // revert: dibujar zona completa sin transparencia especial
-      ctx.fillStyle = fill;
-      ctx.fillRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);
-    } else if(obj.name==='goal_center'){
+    if(obj.name==='goal_center'){
       // resaltar goal con borde
       ctx.fillStyle = fill;
       ctx.fillRect(obj.x-obj.width/2, obj.y-obj.height/2, obj.width, obj.height);

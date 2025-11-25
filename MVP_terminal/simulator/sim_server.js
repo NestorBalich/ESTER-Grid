@@ -184,36 +184,40 @@ function setScenario(type){
 function generate_rescue(){
   objects = [];
   rescueProgress = { placed: 0, total: 0, done: false };
+  // Zonas oscuras
   const zoneColors = {
-    red: [220,40,40],
-    green: [40,180,60],
-    blue: [40,80,200]
+    red: [139,0,0],      // rojo oscuro
+    green: [0,100,0],    // verde oscuro
+    blue: [0,0,139]      // azul oscuro
   };
-  // Zonas ocupan tercios verticales completos (fondo) para facilitar empuje
-  const zoneWidth = WINDOW_W/3;
-  const zoneHeight = WINDOW_H; // altura completa
+  // Objetos claros
+  const itemColors = {
+    red: [255,150,150],   // rojo claro
+    green: [144,238,144], // verde claro
+    blue: [135,206,250]   // azul claro
+  };
+  // Tres zonas verticales (tercios)
+  const zoneWidth = WINDOW_W / 3;
+  const zoneHeight = WINDOW_H;
   const zones = [
-    { name:'zone_red',   color: zoneColors.red,   x: zoneWidth/2,              y: WINDOW_H/2, w: zoneWidth, h: zoneHeight },
-    { name:'zone_green', color: zoneColors.green, x: zoneWidth + zoneWidth/2,  y: WINDOW_H/2, w: zoneWidth, h: zoneHeight },
-    { name:'zone_blue',  color: zoneColors.blue,  x: 2*zoneWidth + zoneWidth/2,y: WINDOW_H/2, w: zoneWidth, h: zoneHeight }
+    { key:'red',   name:'zone_red',   x: zoneWidth*0.5, y: WINDOW_H/2 },
+    { key:'green', name:'zone_green', x: zoneWidth*1.5, y: WINDOW_H/2 },
+    { key:'blue',  name:'zone_blue',  x: zoneWidth*2.5, y: WINDOW_H/2 }
   ];
   for(const z of zones){
-    objects.push({ x:z.x, y:z.y, type:'zona', name:z.name, color:z.color, width:z.w, height:z.h, role:'zone', zoneColor:z.color });
+    objects.push({ x:z.x, y:z.y, type:'zona', name:z.name, color: zoneColors[z.key], width:zoneWidth, height:zoneHeight, role:'zone', zoneColor:itemColors[z.key] });
   }
-  // Objetos movibles (5 por color) cerca de la parte superior
-  const perColor = 5;
-  const itemSizeW = 24, itemSizeH = 16;
-  const spawnBaseY = WINDOW_H*0.15;
-  const spacing = 30;
-  const colorsEntries = Object.entries(zoneColors);
-  for(const [key,col] of colorsEntries){
-    for(let i=0;i<perColor;i++){
-      const sx = 80 + i*spacing + (key==='green'? 200 : key==='blue'? 400 : 0);
-      const sy = spawnBaseY + (colorsEntries.findIndex(e=>e[0]===key))*spacing*1.2;
-      objects.push({ x:sx, y:sy, type:'movible', name:`item_${key}_${i}`, color: col, width:itemSizeW, height:itemSizeH, role:'item', targetColor: col });
+  // 3 objetos movibles de cada color (total 9)
+  const itemSize = 20;
+  for(const ckey of ['red','green','blue']){
+    const col = itemColors[ckey];
+    for(let i=0; i<3; i++){
+      const x = 100 + Math.random()*(WINDOW_W-200);
+      const y = 50 + Math.random()*(WINDOW_H-100);
+      objects.push({ x, y, type:'movible', name:`item_${ckey}_${i}`, color: col, width:itemSize, height:itemSize, role:'item', targetColor: col });
     }
   }
-  rescueProgress.total = perColor * colorsEntries.length; // 15
+  rescueProgress.total = 9;
 }
 
 // ----------------------------
