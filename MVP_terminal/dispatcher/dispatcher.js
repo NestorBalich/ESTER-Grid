@@ -24,8 +24,8 @@ const robots = {}; // { ROBx: { port_robot, port_twin, address, last_state, last
 for (let i = 1; i <= MAX_ROBOTS; i++) {
     const name = `ROB${i}`;
     robots[name] = {
-        port_robot: UDP_BASE + (i - 1),
-        port_twin: UDP_BASE + MAX_ROBOTS + (i - 1),
+        port_robot_sim: UDP_BASE + (i - 1),
+        port_robot_real: UDP_BASE + MAX_ROBOTS + (i - 1),
         address: null,
         last_state: null,
         last_ts: null
@@ -47,11 +47,11 @@ app.post("/register", (req, res) => {
     // Siempre devuelve sus puertos fijos, aunque no esté conectado aún
     res.json({
         robotName,
-        port_robot: r.port_robot,
-        port_twin: r.port_twin
+        port_robot_sim: r.port_robot_sim,
+        port_robot_real   : r.port_robot_real   
     });
 
-    console.log(`REGISTER → ${robotName} | Robot UDP ${r.port_robot} | Twin UDP ${r.port_twin}`);
+    console.log(`REGISTER → ${robotName} | Robot UDP ${r.port_robot_sim} | Twin UDP ${r.port_robot_real   }`);
 });
 
 // ------------------------------------------

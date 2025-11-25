@@ -28,7 +28,7 @@ res = requests.post(f"{SERVER}/register", json={"robotName": ROBOT_ID})
 info = res.json()
 
 # Usar puerto fijo del robot
-UDP_PORT = info["port_robot"]
+UDP_PORT = info["port_robot_sim"]
 DISPATCHER_ADDR = ("127.0.0.1", 9999)
 
 print(f"[{ROBOT_ID}] UDP assigned:", UDP_PORT)
