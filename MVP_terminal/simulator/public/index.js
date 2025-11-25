@@ -6,6 +6,8 @@ const panelCollitions = document.getElementById("panel_collitions");
 
 const camCanvas = document.getElementById("camCanvas");
 const camCtx = camCanvas.getContext("2d");
+// Botón overlay (controlado internamente al entrar/salir fullscreen)
+const fullscreenRunBtn = document.getElementById('fullscreenRunBtn');
 
 const socket = io();
 
@@ -296,23 +298,16 @@ function draw(){
     ctx.arc(x, y, 10, 0, 2*Math.PI);
     ctx.stroke();
     ctx.restore();
-    // halo naranja neón para distinguir gemelo
+    // halo suave para distinguir gemelo
     ctx.save();
-    const haloGrad = ctx.createRadialGradient(x, y, 8, x, y, 28);
-    haloGrad.addColorStop(0, 'rgba(255,180,0,0.65)');       // centro brillante
-    haloGrad.addColorStop(0.35, 'rgba(255,150,0,0.45)');
-    haloGrad.addColorStop(0.7, 'rgba(255,120,0,0.22)');
-    haloGrad.addColorStop(1, 'rgba(255,100,0,0)');          // fade out
+    const haloGrad = ctx.createRadialGradient(x, y, 10, x, y, 22);
+    haloGrad.addColorStop(0, 'rgba(255,255,255,0.25)');
+    haloGrad.addColorStop(0.7, 'rgba(180,180,255,0.15)');
+    haloGrad.addColorStop(1, 'rgba(150,150,255,0)');
     ctx.fillStyle = haloGrad;
     ctx.beginPath();
-    ctx.arc(x, y, 28, 0, 2*Math.PI);
+    ctx.arc(x, y, 22, 0, 2*Math.PI);
     ctx.fill();
-    // anillo externo fino naranja
-    ctx.strokeStyle = 'rgba(255,150,0,0.85)';
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.arc(x, y, 19, 0, 2*Math.PI);
-    ctx.stroke();
     ctx.restore();
   }
 
@@ -348,9 +343,7 @@ function updatePanel(){
   robotList.innerHTML = "";
   for(const rb of robots){
     const li = document.createElement("li");
-    const isTwin = rb.id.startsWith('TWIN_');
-    const showCol = !isTwin && rb.collision?.collision;
-    li.textContent = rb.id + (showCol?" (COL)":"");
+    li.textContent = rb.id + (rb.collision?.collision?" (COL)":"");
     robotList.appendChild(li);
   }
   const rescueLine = (currentScenario==='rescate' && rescueInfo)? `<div style="color:#0af">Rescate: ${rescueInfo.placed}/${rescueInfo.total} ${rescueInfo.done? '✔️':''}</div>`:'';
@@ -480,6 +473,7 @@ window.clearStatus = function clearStatus() {
     canvas.height = window.innerHeight;
     canvas.style.width = '100vw';
     canvas.style.height = '100vh';
+    if(fullscreenRunBtn) fullscreenRunBtn.style.display = 'block';
     appendStatus('🖥️ Canvas simulador en pantalla completa');
     draw();
   }
@@ -490,6 +484,7 @@ window.clearStatus = function clearStatus() {
     canvas.height = originalCanvasSize.h;
     canvas.style.width = '';
     canvas.style.height = '';
+    if(fullscreenRunBtn) fullscreenRunBtn.style.display = 'none';
     appendStatus('↩️ Canvas simulador fuera de pantalla completa');
     draw();
   }

@@ -26,10 +26,14 @@
   /* Abajo: controles de objetos */
   #bottomPanel {background:#333;color:#fff;padding:10px;box-sizing:border-box;display:flex;gap:10px;flex-wrap:wrap;}
   #bottomPanel input, #bottomPanel button {padding:5px;}
+  /* Botón overlay para ejecutar código en fullscreen del simulador */
+  #fullscreenRunBtn {position:fixed;top:12px;right:18px;z-index:10000;background:#ff8800;color:#fff;border:none;padding:10px 14px;font-size:14px;border-radius:6px;box-shadow:0 0 8px rgba(0,0,0,0.5);cursor:pointer;display:none;font-weight:bold;pointer-events:auto;}
+  #fullscreenRunBtn:hover {background:#ff9900;}
 </style>
 </head>
 <body>
 <h1>ESTER - GRID Robotics 🌐</h1>
+<button id="fullscreenRunBtn" title="Ejecutar código mientras el simulador está en pantalla completa">▶ Ejecutar Código</button>
 
 <div id="middle">
   <!-- Izquierda: cámara -->
@@ -50,18 +54,28 @@
       <button onclick="copyOutput()">📋 Copiar consola</button>
       <select id="selector">
         <option value="">⬆️ Cargar ejemplo...</option>
-        <option value="ejemplo0">⏹️ Mover cuadrado</option>
-        <option value="ejemplo1">🛸 Teletransportar</option>
-        <option value="ejemplo2">🛞 Girar y avanzar</option>
-        <option value="ejemplo3">Mover un robot</option>
-        <option value="ejemplo4">Mover dos robot</option>
-        <option value="ejemplo5">🚑 4 robots chocando</option>
-        <option value="ejemplo6">🤖 30 robots en formación</option>
-        <option value="ejemplo7_desincronizado">⚠️ Anti-patrón: Desincronización</option>
-        <option value="ejemplo8_sincronizado">✅ Patrón correcto: Sincronización</option>
-        <option value="ejemplo9_mensajes">📨 Mensajes entre robots A y B</option>
-        <option value="ejemplo10_seguidor">🎯 Robot seguidor (Leader-Follower)</option>
-        <option value="ejemplo11_gemelos">👥 Modo Gemelo Digital (Digital Twin)</option>
+        <optgroup label="Básicos">
+          <option value="ejemplo0">⏹️ Mover cuadrado</option>
+          <option value="ejemplo1">🛸 Teletransportar</option>
+          <option value="ejemplo2">🛞 Girar y avanzar</option>
+        </optgroup>
+        <optgroup label="Movimiento Individual">
+          <option value="ejemplo3">Mover un robot</option>
+        </optgroup>
+        <optgroup label="Sincronización Multi-Robot">
+          <option value="ejemplo4">🤝 Mover dos robots</option>
+          <option value="ejemplo5">🚑 4 robots chocando</option>
+          <option value="ejemplo7_desincronizado">⚠️ Anti-patrón: Desincronización</option>
+          <option value="ejemplo8_sincronizado">✅ Patrón correcto: Sincronización</option>
+        </optgroup>
+        <optgroup label="Colaborativo">
+          <option value="ejemplo9_mensajes">📨 Mensajes entre robots</option>
+          <option value="ejemplo10_seguidor">🎯 Robot seguidor (Leader-Follower)</option>
+        <option value="ejemplo6_emergente">🐍 Comportamiento emergente serpiente</option>
+        </optgroup>
+        <optgroup label="Gemelos Digitales">
+          <option value="ejemplo11_gemelos">👥 Modo Gemelo Digital</option>
+        </optgroup>
       </select>
     </div>
     <div id="panel_output" style="height:40%;background:#111;color:#0f0;overflow:auto;padding:5px;margin-top:5px;font-family:monospace;white-space:pre-wrap;">
@@ -110,7 +124,8 @@
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
 <script src="index.js"></script> <!-- ✅ Lógica separada -->
 <script>
-
+// Botón solo ejecuta código; visibilidad controlada desde index.js (enterSimFullscreen/exitSimFullscreen)
+document.getElementById('fullscreenRunBtn').addEventListener('click', ()=>{ if(window.runCode) window.runCode(); });
 </script>
 </body>
 </html>
